@@ -12,6 +12,25 @@ import {
   Badge,
   Card
 } from 'react-bootstrap';
+import * as XLSX from 'xlsx'; // Importing the xlsx library
+
+// Export to Excel function component
+const ExportExcel = ({ data }) => {
+  const exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(data); // Convert JSON data to a sheet
+    const wb = XLSX.utils.book_new(); // Create a new workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Expenses'); // Append sheet to workbook
+
+    // Write and download the Excel file
+    XLSX.writeFile(wb, 'expenses.xlsx');
+  };
+
+  return (
+    <Button variant="success" onClick={exportToExcel}>
+      Export to Excel
+    </Button>
+  );
+};
 
 function App() {
   const [expenses, setExpenses] = useState([]);
@@ -124,6 +143,11 @@ function App() {
           {alert.message}
         </Alert>
       )}
+
+      {/* Export to Excel Button */}
+      <div className="mb-4 d-flex justify-content-end">
+        <ExportExcel data={expenses} /> {/* Pass expenses data to ExportExcel */}
+      </div>
 
       <Card className="mb-4 shadow">
         <Card.Body>
