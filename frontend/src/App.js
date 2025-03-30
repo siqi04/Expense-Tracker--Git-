@@ -65,22 +65,25 @@ function App() {
     e.preventDefault();
     try {
       if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, formData);
+        const response = await axios.put(`${API_URL}/${editingId}`, { ...formData, uuid });
+        console.log(response.data); // Log the response data for debugging
         showAlert('success', 'Expense updated successfully');
       } else {
-        await axios.post(API_URL, { ...formData, id: uuidv4() });
+        const response = await axios.post(API_URL, { ...formData, uuid: uuidv4() });
+        console.log(response.data); // Log the response data for debugging
         showAlert('success', 'Expense added successfully');
       }
       fetchExpenses();
       handleClose();
     } catch (error) {
+      console.error(error); // Log any error for debugging
       showAlert('danger', 'Operation failed');
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (uuid) => {
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      await axios.delete(`${API_URL}/${uuid}`);
       showAlert('success', 'Expense deleted');
       fetchExpenses();
     } catch (error) {
@@ -94,7 +97,8 @@ function App() {
       amount: expense.amount,
       category: expense.category
     });
-    setEditingId(expense.id);
+    setUuid(expense.uuid); // Set UUID from the selected expense
+    setEditingId(expense.uuid); // Use UUID for editing
     setShowModal(true);
   };
 
@@ -164,8 +168,8 @@ function App() {
         </thead>
         <tbody>
           {expenses.length ? expenses.map(e => (
-            <tr key={e.id}><td>{e.description}</td><td>${parseFloat(e.amount).toFixed(2)}</td><td><Badge bg="primary">{e.category}</Badge></td>
-            <td><Button variant="warning" onClick={() => handleEdit(e)}>✏</Button> <Button variant="danger" onClick={() => handleDelete(e.id)}>🗑</Button></td></tr>
+            <tr key={e.uuid}><td>{e.description}</td><td>${parseFloat(e.amount).toFixed(2)}</td><td><Badge bg="primary">{e.category}</Badge></td>
+            <td><Button variant="warning" onClick={() => handleEdit(e)}>✏</Button> <Button variant="danger" onClick={() => handleDelete(e.uuid)}>🗑</Button></td></tr>
           )) : <tr><td colSpan="4" className="text-center">No expenses found.</td></tr>}
         </tbody>
       </Table>

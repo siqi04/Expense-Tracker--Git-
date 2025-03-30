@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
-const { v4: uuidv4 } = require('uuid');  // Import uuid
+const { v4: uuidv4 } = require('uuid'); // Import uuid
 const app = express();
 
 // Middleware
@@ -26,9 +26,13 @@ const pool = mysql.createPool({
 app.get('/api/expenses', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM expenses ORDER BY date DESC');
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: 'No expenses found' });
+    }
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error fetching expenses:", err.message);
+    res.status(500).json({ error: 'Failed to fetch expenses', details: err.message });
   }
 });
 
@@ -36,14 +40,21 @@ app.get('/api/expenses', async (req, res) => {
 app.post('/api/expenses', async (req, res) => {
   try {
     const { description, amount, category } = req.body;
+    
+    // Basic validation
+    if (!description || !amount || !category) {
+      return res.status(400).json({ error: 'Description, amount, and category are required' });
+    }
+
     const uuid = uuidv4();  // Generate a new UUID
     const [result] = await pool.query(
       'INSERT INTO expenses (uuid, description, amount, category) VALUES (?, ?, ?, ?)',
       [uuid, description, amount, category]
     );
-    res.status(201).json({ uuid, id: result.insertId, ...req.body });
+    res.status(201).json({ uuid, id: result.insertId, description, amount, category });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("Error adding expense:", err.message);
+    res.status(400).json({ error: 'Failed to add expense', details: err.message });
   }
 });
 
@@ -52,13 +63,24 @@ app.put('/api/expenses/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { description, amount, category } = req.body;
-    await pool.query(
+
+    if (!description || !amount || !category) {
+      return res.status(400).json({ error: 'Description, amount, and category are required' });
+    }
+
+    const [result] = await pool.query(
       'UPDATE expenses SET description = ?, amount = ?, category = ? WHERE id = ?',
       [description, amount, category, id]
     );
-    res.json({ id, ...req.body });
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Expense not found' });
+    }
+
+    res.json({ id, description, amount, category });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("Error updating expense:", err.message);
+    res.status(400).json({ error: 'Failed to update expense', details: err.message });
   }
 });
 
@@ -66,10 +88,17 @@ app.put('/api/expenses/:id', async (req, res) => {
 app.delete('/api/expenses/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM expenses WHERE id = ?', [id]);
+    
+    const [result] = await pool.query('DELETE FROM expenses WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Expense not found' });
+    }
+
     res.status(204).end();
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("Error deleting expense:", err.message);
+    res.status(400).json({ error: 'Failed to delete expense', details: err.message });
   }
 });
 
@@ -78,15 +107,37 @@ app.get('/api/expenses/:uuid', async (req, res) => {
   try {
     const { uuid } = req.params;
     const [rows] = await pool.query('SELECT * FROM expenses WHERE uuid = ?', [uuid]);
+
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Expense not found' });
     }
+
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error retrieving expense by UUID:", err.message);
+    res.status(500).json({ error: 'Failed to fetch expense by UUID', details: err.message });
+  }
+});
+
+// Get expenses by category
+app.get('/api/expenses/category/:category', async (req, res) => {
+  try {
+    const { category } = req.params;
+    const [rows] = await pool.query('SELECT * FROM expenses WHERE category = ? ORDER BY date DESC', [category]);
+
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: `No expenses found for category ${category}` });
+    }
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Error fetching expenses by category:", err.message);
+    res.status(500).json({ error: 'Failed to fetch expenses by category', details: err.message });
   }
 });
 
 // Start Server
 const PORT = process.env.PORT || 6111;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
