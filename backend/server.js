@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
 const rateLimit = require('express-rate-limit');
 const app = express();
 
@@ -30,97 +29,14 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Email Transporter Configuration
-const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE || 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
-});
-
 // Utility Functions
 const validateEmail = (email) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
-const generateEmailHtml = (totalAmount, expenses) => {
-  return `<h1>Your Expense Summary</h1><p>Total: $${totalAmount.toFixed(2)}</p><ul>${expenses.map(expense => `<li>${expense.description} - $${expense.amount}</li>`).join('')}</ul>`;
-};
-
-const generateEmailText = (totalAmount, expenses) => {
-  return `Your Expense Summary\nTotal: $${totalAmount.toFixed(2)}\n\n${expenses.map(expense => `${expense.description} - $${expense.amount}`).join('\n')}`;
-};
-
-const sendExpenseEmail = async (email, totalAmount, expenses) => {
-  try {
-    const mailOptions = {
-      from: `Expense Tracker <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: `Your Expense Summary - Total: $${totalAmount.toFixed(2)}`,
-      html: generateEmailHtml(totalAmount, expenses),
-      text: generateEmailText(totalAmount, expenses)
-    };
-
-    await transporter.sendMail(mailOptions);
-    return true;
-  } catch (error) {
-    console.error('Email sending error:', error);
-    return false;
-  }
-};
-
 // API Routes
 
-// Get all expenses (for demo purposes - consider removing in production)
-app.get('/api/expenses', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM expenses ORDER BY date DESC LIMIT 100');
-    res.json(rows);
-  } catch (err) {
-    console.error('Error fetching expenses:', err);
-    res.status(500).json({ error: 'Failed to fetch expenses' });
-  }
-});
-
-// Add new expense
-app.post('/api/expenses', async (req, res) => {
-  try {
-    const { description, amount, category, email } = req.body;
-
-    if (!validateEmail(email)) {
-      return res.status(400).json({ error: 'Please provide a valid email address' });
-    }
-
-    if (!description || !amount || !category) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const parsedAmount = parseFloat(amount);
-    if (Number.isNaN(parsedAmount)) {
-      return res.status(400).json({ error: 'Amount must be a number' });
-    }
-
-    const [result] = await pool.query(
-      'INSERT INTO expenses (description, amount, category, email, date) VALUES (?, ?, ?, ?, NOW())',
-      [description, parsedAmount, category, email]
-    );
-
-    res.status(201).json({
-      id: result.insertId,
-      description,
-      amount: parsedAmount,
-      category,
-      email,
-      date: new Date().toISOString()
-    });
-  } catch (err) {
-    console.error('Error creating expense:', err);
-    res.status(500).json({ error: 'Failed to create expense' });
-  }
-});
-
-// Save total expense and send email
+// Save total expense and return an ID
 app.post('/api/expenses/save-total', async (req, res) => {
   try {
     const { email, totalExpense } = req.body;
@@ -134,63 +50,48 @@ app.post('/api/expenses/save-total', async (req, res) => {
       return res.status(400).json({ error: 'Invalid total amount' });
     }
 
-    // Get expenses for this email
-    const [expenses] = await pool.query(
-      'SELECT description, amount, category, date FROM expenses WHERE email = ? ORDER BY date DESC',
-      [email]
+    // Save total expense and get the inserted ID
+    const [result] = await pool.query(
+      'INSERT INTO total_expenses (email, total_amount) VALUES (?, ?)',
+      [email, parsedTotal]
     );
 
-    // Save/update total
-    await pool.query(
-      'INSERT INTO total_expenses (email, total_amount) VALUES (?, ?) ON DUPLICATE KEY UPDATE total_amount = ?',
-      [email, parsedTotal, parsedTotal]
-    );
-
-    // Send email
-    const emailSent = await sendExpenseEmail(email, parsedTotal, expenses);
-
+    // Return the inserted ID with the success message
     res.json({
       success: true,
-      message: emailSent
-        ? 'Expense summary saved and email sent successfully'
-        : 'Expense saved but email failed to send',
-      emailSent
+      message: 'Expense summary saved successfully',
+      id: result.insertId
     });
-
   } catch (err) {
     console.error('Error saving total expense:', err);
     res.status(500).json({ error: 'Failed to process your request' });
   }
 });
 
-// Retrieve expenses by email
-app.post('/api/expenses/retrieve', async (req, res) => {
+// Retrieve total expense using the ID
+app.get('/api/expenses/total/:id', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { id } = req.params;
 
-    if (!validateEmail(email)) {
-      return res.status(400).json({ error: 'Please provide a valid email address' });
-    }
-
-    const [expenses] = await pool.query(
-      'SELECT description, amount, category, date FROM expenses WHERE email = ? ORDER BY date DESC',
-      [email]
-    );
-
+    // Query the total expense using the provided ID
     const [total] = await pool.query(
-      'SELECT total_amount FROM total_expenses WHERE email = ?',
-      [email]
+      'SELECT total_amount, email FROM total_expenses WHERE id = ?',
+      [id]
     );
+
+    if (total.length === 0) {
+      return res.status(404).json({ error: 'Total expense not found for the given ID' });
+    }
 
     res.json({
       success: true,
-      expenses,
-      totalExpense: total[0]?.total_amount || 0
+      totalExpense: total[0].total_amount,
+      email: total[0].email
     });
 
   } catch (err) {
-    console.error('Error retrieving expenses:', err);
-    res.status(500).json({ error: 'Failed to retrieve expenses' });
+    console.error('Error retrieving total expense:', err);
+    res.status(500).json({ error: 'Failed to retrieve total expense' });
   }
 });
 
@@ -203,5 +104,4 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5111;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Email service configured for: ${process.env.EMAIL_USER}`);
 });

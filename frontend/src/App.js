@@ -41,10 +41,9 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [alert, setAlert] = useState({ show: false, variant: '', message: '' });
   const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState('');
   const [isRetrieving, setIsRetrieving] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false); // Modal for email input when saving total expense
-  const [showRetrieveModal, setShowRetrieveModal] = useState(false); // Modal for email input when retrieving expenses
+  const [showRetrieveModal, setShowRetrieveModal] = useState(false); // Modal for ID input when retrieving expenses
+  const [expenseId, setExpenseId] = useState(''); // State for expense ID
 
   const API_URL = 'http://localhost:5111/api/expenses';
 
@@ -70,7 +69,6 @@ function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Add or update expense without email
     try {
       // If editing an expense, update it
       if (editingId) {
@@ -124,38 +122,33 @@ function App() {
   };
 
   const handleSaveTotalExpense = async () => {
-    // Show modal to enter email before saving total expense
-    setShowEmailModal(true);
-  };
-
-  const handleConfirmEmail = async () => {
-    if (!email) {
-      showAlert('danger', 'Please enter an email address');
+    // Save total expense tied to ID
+    if (!expenseId) {
+      showAlert('danger', 'Please enter an ID');
       return;
     }
 
     const totalExpense = getTotalExpense();
     try {
-      // Save total expense tied to the email address
-      await axios.post(`${API_URL}/save-total`, { totalExpense, email });
+      // Save total expense tied to the ID
+      await axios.post(`${API_URL}/save-total`, { totalExpense, expenseId });
       showAlert('success', 'Total expense saved successfully');
-      setShowEmailModal(false); // Close email modal
     } catch (error) {
       showAlert('danger', 'Failed to save total expense');
     }
   };
 
   const handleRetrievePreviousExpenses = async () => {
-    if (!email) {
-      showAlert('danger', 'Please enter an email address');
+    if (!expenseId) {
+      showAlert('danger', 'Please enter an ID');
       return;
     }
     setIsRetrieving(true);
     try {
-      const response = await axios.post(`${API_URL}/retrieve`, { email });
+      const response = await axios.post(`${API_URL}/retrieve`, { expenseId });
       setPreviousExpenses(response.data);
       showAlert('success', 'Previous expenses retrieved successfully');
-      setShowRetrieveModal(false); // Close email modal
+      setShowRetrieveModal(false); // Close retrieve modal
     } catch (error) {
       showAlert('danger', 'Failed to retrieve previous expenses');
     } finally {
@@ -209,7 +202,7 @@ function App() {
       <div className="mb-4 d-flex justify-content-end">
         <Button
           variant="warning"
-          onClick={() => setShowRetrieveModal(true)} // Show modal for email input when retrieving expenses
+          onClick={() => setShowRetrieveModal(true)} // Show modal for ID input when retrieving expenses
         >
           Retrieve Previous Expenses
         </Button>
@@ -307,95 +300,44 @@ function App() {
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 required
               >
-                <option value="Food">Food</option>
-                <option value="Transport">Transport</option>
-                <option value="Entertainment">Entertainment</option>
-                <option value="Bills">Bills</option>
-                <option value="Other">Other</option>
+                <option>Food</option>
+                <option>Transport</option>
+                <option>Entertainment</option>
+                <option>Bills</option>
+                <option>Other</option>
               </Form.Select>
             </Form.Group>
 
             <Button variant="primary" type="submit">
-              {editingId ? 'Save Changes' : 'Add Expense'}
+              {editingId ? 'Update Expense' : 'Add Expense'}
             </Button>
           </Form>
         </Modal.Body>
       </Modal>
 
-      {/* Modal for Email Input to Save Total Expense */}
-      <Modal show={showEmailModal} onHide={() => setShowEmailModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Enter Email to Save Total Expense</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form.Group controlId="formEmail" className="mb-3">
-            <Form.Label>Email</Form.Label>
-            <Form.Control
-              type="email"
-              placeholder="Enter email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </Form.Group>
-          <Button variant="primary" onClick={handleConfirmEmail}>
-            Save Total Expense
-          </Button>
-        </Modal.Body>
-      </Modal>
-
-      {/* Modal for Email Input to Retrieve Previous Expenses */}
+      {/* Modal for Retrieving Expenses */}
       <Modal show={showRetrieveModal} onHide={() => setShowRetrieveModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>Enter Email to Retrieve Previous Expenses</Modal.Title>
+          <Modal.Title>Retrieve Previous Expenses by ID</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form.Group controlId="formEmailRetrieve" className="mb-3">
-            <Form.Label>Email</Form.Label>
-            <Form.Control
-              type="email"
-              placeholder="Enter email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </Form.Group>
-          <Button variant="primary" onClick={handleRetrievePreviousExpenses} disabled={isRetrieving}>
-            {isRetrieving ? 'Retrieving...' : 'Retrieve Previous Expenses'}
-          </Button>
+          <Form onSubmit={(e) => { e.preventDefault(); handleRetrievePreviousExpenses(); }}>
+            <Form.Group controlId="formExpenseId" className="mb-3">
+              <Form.Label>Expense ID</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Enter expense ID"
+                value={expenseId}
+                onChange={(e) => setExpenseId(e.target.value)}
+                required
+              />
+            </Form.Group>
+            <Button variant="info" type="submit" disabled={isRetrieving}>
+              {isRetrieving ? 'Retrieving...' : 'Retrieve Expenses'}
+            </Button>
+          </Form>
         </Modal.Body>
       </Modal>
-
-      {/* Previous Expenses Display */}
-      {previousExpenses.length > 0 && (
-        <div className="mt-4">
-          <h5>Previous Expenses</h5>
-          <Table striped bordered hover responsive className="shadow">
-            <thead className="table-dark">
-              <tr>
-                <th>Description</th>
-                <th>Amount</th>
-                <th>Category</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {previousExpenses.map(expense => (
-                <tr key={expense.id}>
-                  <td>{expense.description}</td>
-                  <td>${parseFloat(expense.amount).toFixed(2)}</td>
-                  <td>
-                    <Badge bg={categoryColors[expense.category] || 'secondary'}>
-                      {expense.category}
-                    </Badge>
-                  </td>
-                  <td>{new Date(expense.date).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
-      )}
     </Container>
   );
 }
