@@ -13,6 +13,7 @@ import {
   Card
 } from 'react-bootstrap';
 import * as XLSX from 'xlsx'; // Importing the xlsx library
+import { v4 as uuidv4 } from 'uuid'; // Import uuid library to generate unique IDs
 
 const ExportExcel = ({ data }) => {
   const exportToExcel = () => {
@@ -69,14 +70,17 @@ function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Generate a new expenseId if not editing (for new expenses)
+    const generatedExpenseId = editingId ? editingId : uuidv4();
+
     try {
       // If editing an expense, update it
       if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, formData);
+        await axios.put(`${API_URL}/${editingId}`, { ...formData, id: generatedExpenseId });
         showAlert('success', 'Expense updated successfully');
       } else {
-        // Add new expense
-        await axios.post(API_URL, formData);
+        // Add new expense with a unique ID
+        await axios.post(API_URL, { ...formData, id: generatedExpenseId });
         showAlert('success', 'Expense added successfully');
       }
 
@@ -122,6 +126,9 @@ function App() {
   };
 
   const handleSaveTotalExpense = async () => {
+    // Generate a unique ID for total expense saving
+    const generatedExpenseId = uuidv4();
+
     // Save total expense tied to ID
     if (!expenseId) {
       showAlert('danger', 'Please enter an ID');
@@ -130,8 +137,8 @@ function App() {
 
     const totalExpense = getTotalExpense();
     try {
-      // Save total expense tied to the ID
-      await axios.post(`${API_URL}/save-total`, { totalExpense, expenseId });
+      // Save total expense tied to the generated ID
+      await axios.post(`${API_URL}/save-total`, { totalExpense, expenseId: generatedExpenseId });
       showAlert('success', 'Total expense saved successfully');
     } catch (error) {
       showAlert('danger', 'Failed to save total expense');
@@ -298,31 +305,30 @@ function App() {
               <Form.Select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                required
               >
-                <option>Food</option>
-                <option>Transport</option>
-                <option>Entertainment</option>
-                <option>Bills</option>
-                <option>Other</option>
+                <option value="Food">Food</option>
+                <option value="Transport">Transport</option>
+                <option value="Entertainment">Entertainment</option>
+                <option value="Bills">Bills</option>
+                <option value="Other">Other</option>
               </Form.Select>
             </Form.Group>
 
             <Button variant="primary" type="submit">
-              {editingId ? 'Update Expense' : 'Add Expense'}
+              {editingId ? 'Save Changes' : 'Add Expense'}
             </Button>
           </Form>
         </Modal.Body>
       </Modal>
 
-      {/* Modal for Retrieving Expenses */}
+      {/* Modal for Retrieving Previous Expenses */}
       <Modal show={showRetrieveModal} onHide={() => setShowRetrieveModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>Retrieve Previous Expenses by ID</Modal.Title>
+          <Modal.Title>Retrieve Previous Expenses</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form onSubmit={(e) => { e.preventDefault(); handleRetrievePreviousExpenses(); }}>
-            <Form.Group controlId="formExpenseId" className="mb-3">
+          <Form onSubmit={handleRetrievePreviousExpenses}>
+            <Form.Group controlId="expenseId" className="mb-3">
               <Form.Label>Expense ID</Form.Label>
               <Form.Control
                 type="text"
@@ -332,12 +338,13 @@ function App() {
                 required
               />
             </Form.Group>
-            <Button variant="info" type="submit" disabled={isRetrieving}>
+            <Button variant="primary" type="submit" disabled={isRetrieving}>
               {isRetrieving ? 'Retrieving...' : 'Retrieve Expenses'}
             </Button>
           </Form>
         </Modal.Body>
       </Modal>
+
     </Container>
   );
 }
