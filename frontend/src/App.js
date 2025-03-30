@@ -46,7 +46,7 @@ function App() {
   const [showRetrieveModal, setShowRetrieveModal] = useState(false); // Modal for ID input when retrieving expenses
   const [expenseId, setExpenseId] = useState(''); // State for expense ID
 
-  const API_URL = 'http://localhost:5111/api/expenses';
+  const API_URL = 'http://localhost:6222/api/expenses';
 
   useEffect(() => {
     const fetchExpenses = async () => {
