@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
+const { v4: uuidv4 } = require('uuid');  // Import uuid
 const app = express();
 
 // Middleware
@@ -20,6 +21,8 @@ const pool = mysql.createPool({
 });
 
 // CRUD Routes
+
+// Get all expenses
 app.get('/api/expenses', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM expenses ORDER BY date DESC');
@@ -29,19 +32,22 @@ app.get('/api/expenses', async (req, res) => {
   }
 });
 
+// Add new expense with UUID
 app.post('/api/expenses', async (req, res) => {
   try {
     const { description, amount, category } = req.body;
+    const uuid = uuidv4();  // Generate a new UUID
     const [result] = await pool.query(
-      'INSERT INTO expenses (description, amount, category) VALUES (?, ?, ?)',
-      [description, amount, category]
+      'INSERT INTO expenses (uuid, description, amount, category) VALUES (?, ?, ?, ?)',
+      [uuid, description, amount, category]
     );
-    res.status(201).json({ id: result.insertId, ...req.body });
+    res.status(201).json({ uuid, id: result.insertId, ...req.body });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
+// Update expense by ID
 app.put('/api/expenses/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -56,6 +62,7 @@ app.put('/api/expenses/:id', async (req, res) => {
   }
 });
 
+// Delete expense by ID
 app.delete('/api/expenses/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -63,6 +70,20 @@ app.delete('/api/expenses/:id', async (req, res) => {
     res.status(204).end();
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Retrieve an expense by UUID
+app.get('/api/expenses/:uuid', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const [rows] = await pool.query('SELECT * FROM expenses WHERE uuid = ?', [uuid]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Expense not found' });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
