@@ -44,6 +44,7 @@ function App() {
   const [email, setEmail] = useState('');
   const [isRetrieving, setIsRetrieving] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false); // Modal for email input when saving total expense
+  const [showRetrieveModal, setShowRetrieveModal] = useState(false); // Modal for email input when retrieving expenses
 
   const API_URL = 'http://localhost:5111/api/expenses';
 
@@ -154,6 +155,7 @@ function App() {
       const response = await axios.post(`${API_URL}/retrieve`, { email });
       setPreviousExpenses(response.data);
       showAlert('success', 'Previous expenses retrieved successfully');
+      setShowRetrieveModal(false); // Close email modal
     } catch (error) {
       showAlert('danger', 'Failed to retrieve previous expenses');
     } finally {
@@ -205,20 +207,11 @@ function App() {
 
       {/* Retrieve Previous Expenses Button */}
       <div className="mb-4 d-flex justify-content-end">
-        <Form.Control
-          type="email"
-          placeholder="Enter email to retrieve expenses"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="me-2"
-          disabled={isRetrieving}
-        />
         <Button
           variant="warning"
-          onClick={handleRetrievePreviousExpenses}
-          disabled={isRetrieving}
+          onClick={() => setShowRetrieveModal(true)} // Show modal for email input when retrieving expenses
         >
-          {isRetrieving ? 'Retrieving...' : 'Retrieve Previous Expenses'}
+          Retrieve Previous Expenses
         </Button>
       </div>
 
@@ -322,22 +315,17 @@ function App() {
               </Form.Select>
             </Form.Group>
 
-            <div className="d-flex justify-content-end">
-              <Button variant="secondary" onClick={handleClose} className="me-2">
-                Close
-              </Button>
-              <Button variant="primary" type="submit">
-                {editingId ? 'Update Expense' : 'Add Expense'}
-              </Button>
-            </div>
+            <Button variant="primary" type="submit">
+              {editingId ? 'Save Changes' : 'Add Expense'}
+            </Button>
           </Form>
         </Modal.Body>
       </Modal>
 
-      {/* Modal for Email Input (Save Total Expense) */}
+      {/* Modal for Email Input to Save Total Expense */}
       <Modal show={showEmailModal} onHide={() => setShowEmailModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>Enter Your Email</Modal.Title>
+          <Modal.Title>Enter Email to Save Total Expense</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form.Group controlId="formEmail" className="mb-3">
@@ -350,16 +338,64 @@ function App() {
               required
             />
           </Form.Group>
-          <div className="d-flex justify-content-end">
-            <Button variant="secondary" onClick={() => setShowEmailModal(false)} className="me-2">
-              Close
-            </Button>
-            <Button variant="primary" onClick={handleConfirmEmail}>
-              Save Total Expense
-            </Button>
-          </div>
+          <Button variant="primary" onClick={handleConfirmEmail}>
+            Save Total Expense
+          </Button>
         </Modal.Body>
       </Modal>
+
+      {/* Modal for Email Input to Retrieve Previous Expenses */}
+      <Modal show={showRetrieveModal} onHide={() => setShowRetrieveModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Enter Email to Retrieve Previous Expenses</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group controlId="formEmailRetrieve" className="mb-3">
+            <Form.Label>Email</Form.Label>
+            <Form.Control
+              type="email"
+              placeholder="Enter email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </Form.Group>
+          <Button variant="primary" onClick={handleRetrievePreviousExpenses} disabled={isRetrieving}>
+            {isRetrieving ? 'Retrieving...' : 'Retrieve Previous Expenses'}
+          </Button>
+        </Modal.Body>
+      </Modal>
+
+      {/* Previous Expenses Display */}
+      {previousExpenses.length > 0 && (
+        <div className="mt-4">
+          <h5>Previous Expenses</h5>
+          <Table striped bordered hover responsive className="shadow">
+            <thead className="table-dark">
+              <tr>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Category</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {previousExpenses.map(expense => (
+                <tr key={expense.id}>
+                  <td>{expense.description}</td>
+                  <td>${parseFloat(expense.amount).toFixed(2)}</td>
+                  <td>
+                    <Badge bg={categoryColors[expense.category] || 'secondary'}>
+                      {expense.category}
+                    </Badge>
+                  </td>
+                  <td>{new Date(expense.date).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </div>
+      )}
     </Container>
   );
 }
