@@ -1,118 +1,71 @@
-require('dotenv').config();  // Load environment variables from the .env file
+require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
-const rateLimit = require('express-rate-limit');
-const { v4: uuidv4 } = require('uuid');  // Import UUID package
 const app = express();
 
-// Rate limiting to prevent abuse
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-app.use(limiter);
-
 // Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000' // Restrict to your frontend
-}));
+app.use(cors());
 app.use(express.json());
 
-// MySQL Connection Pool using .env variables
+// MySQL Connection Pool
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,        // Database host (from .env)
-  user: process.env.DB_USER,        // Database user (from .env)
-  password: process.env.DB_PASSWORD, // Database password (from .env)
-  database: process.env.DB_NAME,    // Database name (from .env)
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
 
-// Utility Functions
-const validateEmail = (email) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-};
-
-// API Routes
-
-// Save total expense and return an ID with UUID
-app.post('/api/expenses/save-total', async (req, res) => {
+// CRUD Routes
+app.get('/api/expenses', async (req, res) => {
   try {
-    const { email, totalExpense } = req.body;
+    const [rows] = await pool.query('SELECT * FROM expenses ORDER BY date DESC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    // Validate email format
-    if (!validateEmail(email)) {
-      return res.status(400).json({ error: 'Please provide a valid email address' });
-    }
-
-    // Parse the total expense and validate it's a number
-    const parsedTotal = parseFloat(totalExpense);
-    if (Number.isNaN(parsedTotal)) {
-      return res.status(400).json({ error: 'Invalid total amount' });
-    }
-
-    // Generate UUID for the total expense
-    const expenseId = uuidv4();
-
-    // Save the total expense in the database and get the inserted ID
+app.post('/api/expenses', async (req, res) => {
+  try {
+    const { description, amount, category } = req.body;
     const [result] = await pool.query(
-      'INSERT INTO total_expenses (expenseId, email, total_amount) VALUES (?, ?, ?)',
-      [expenseId, email, parsedTotal]
+      'INSERT INTO expenses (description, amount, category) VALUES (?, ?, ?)',
+      [description, amount, category]
     );
-
-    // The inserted ID will be in result.insertId (not used, as we're using UUID)
-    const insertedId = result.insertId;
-
-    // Return the UUID and success message
-    res.json({
-      success: true,
-      message: 'Expense summary saved successfully',
-      expenseId: expenseId  // Return the UUID
-    });
-
+    res.status(201).json({ id: result.insertId, ...req.body });
   } catch (err) {
-    console.error('Error saving total expense:', err);
-    res.status(500).json({ error: 'Failed to process your request' });
+    res.status(400).json({ error: err.message });
   }
 });
 
-// Retrieve total expense using the UUID
-app.get('/api/expenses/total/:expenseId', async (req, res) => {
+app.put('/api/expenses/:id', async (req, res) => {
   try {
-    const { expenseId } = req.params;
-
-    // Query the total expense using the provided UUID
-    const [total] = await pool.query(
-      'SELECT total_amount, email FROM total_expenses WHERE expenseId = ?',
-      [expenseId]
+    const { id } = req.params;
+    const { description, amount, category } = req.body;
+    await pool.query(
+      'UPDATE expenses SET description = ?, amount = ?, category = ? WHERE id = ?',
+      [description, amount, category, id]
     );
-
-    if (total.length === 0) {
-      return res.status(404).json({ error: 'Total expense not found for the given UUID' });
-    }
-
-    res.json({
-      success: true,
-      totalExpense: total[0].total_amount,
-      email: total[0].email
-    });
-
+    res.json({ id, ...req.body });
   } catch (err) {
-    console.error('Error retrieving total expense:', err);
-    res.status(500).json({ error: 'Failed to retrieve total expense' });
+    res.status(400).json({ error: err.message });
   }
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+app.delete('/api/expenses/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM expenses WHERE id = ?', [id]);
+    res.status(204).end();
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
-// Start the server using the PORT from the .env file
-const PORT = process.env.PORT || 6222;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Start Server
+const PORT = process.env.PORT || 6111;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

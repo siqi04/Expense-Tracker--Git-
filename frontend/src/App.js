@@ -13,13 +13,15 @@ import {
   Card
 } from 'react-bootstrap';
 import * as XLSX from 'xlsx'; // Importing the xlsx library
-import { v4 as uuidv4 } from 'uuid'; // Import uuid library to generate unique IDs
 
+// Export to Excel function component
 const ExportExcel = ({ data }) => {
   const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
+    const ws = XLSX.utils.json_to_sheet(data); // Convert JSON data to a sheet
+    const wb = XLSX.utils.book_new(); // Create a new workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Expenses'); // Append sheet to workbook
+
+    // Write and download the Excel file
     XLSX.writeFile(wb, 'expenses.xlsx');
   };
 
@@ -32,22 +34,20 @@ const ExportExcel = ({ data }) => {
 
 function App() {
   const [expenses, setExpenses] = useState([]);
-  const [previousExpenses, setPreviousExpenses] = useState([]);
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    category: 'Food',
+    category: 'Food'
   });
   const [editingId, setEditingId] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [alert, setAlert] = useState({ show: false, variant: '', message: '' });
   const [loading, setLoading] = useState(true);
-  const [isRetrieving, setIsRetrieving] = useState(false);
-  const [showRetrieveModal, setShowRetrieveModal] = useState(false); // Modal for ID input when retrieving expenses
-  const [expenseId, setExpenseId] = useState(''); // State for expense ID
 
-  const API_URL = 'http://localhost:6222/api/expenses';
+  // API base URL - points to your backend
+  const API_URL = 'http://localhost:6111/api/expenses';
 
+  // Fetch expenses on component mount
   useEffect(() => {
     const fetchExpenses = async () => {
       try {
@@ -69,22 +69,15 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Generate a new expenseId if not editing (for new expenses)
-    const generatedExpenseId = editingId ? editingId : uuidv4();
-
     try {
-      // If editing an expense, update it
       if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, { ...formData, id: generatedExpenseId });
+        await axios.put(`${API_URL}/${editingId}`, formData);
         showAlert('success', 'Expense updated successfully');
       } else {
-        // Add new expense with a unique ID
-        await axios.post(API_URL, { ...formData, id: generatedExpenseId });
+        await axios.post(API_URL, formData);
         showAlert('success', 'Expense added successfully');
       }
-
-      // Refresh expenses list
+      // Refresh expenses
       const response = await axios.get(API_URL);
       setExpenses(response.data);
       handleClose();
@@ -97,7 +90,7 @@ function App() {
     try {
       await axios.delete(`${API_URL}/${id}`);
       showAlert('success', 'Expense deleted successfully');
-      // Refresh expenses list
+      // Refresh expenses
       const response = await axios.get(API_URL);
       setExpenses(response.data);
     } catch (error) {
@@ -109,7 +102,7 @@ function App() {
     setFormData({
       description: expense.description,
       amount: expense.amount,
-      category: expense.category,
+      category: expense.category
     });
     setEditingId(expense.id);
     setShowModal(true);
@@ -119,48 +112,6 @@ function App() {
     setShowModal(false);
     setEditingId(null);
     setFormData({ description: '', amount: '', category: 'Food' });
-  };
-
-  const getTotalExpense = () => {
-    return expenses.reduce((sum, expense) => sum + parseFloat(expense.amount), 0).toFixed(2);
-  };
-
-  const handleSaveTotalExpense = async () => {
-    // Generate a unique ID for total expense saving
-    const generatedExpenseId = uuidv4();
-
-    // Save total expense tied to ID
-    if (!expenseId) {
-      showAlert('danger', 'Please enter an ID');
-      return;
-    }
-
-    const totalExpense = getTotalExpense();
-    try {
-      // Save total expense tied to the generated ID
-      await axios.post(`${API_URL}/save-total`, { totalExpense, expenseId: generatedExpenseId });
-      showAlert('success', 'Total expense saved successfully');
-    } catch (error) {
-      showAlert('danger', 'Failed to save total expense');
-    }
-  };
-
-  const handleRetrievePreviousExpenses = async () => {
-    if (!expenseId) {
-      showAlert('danger', 'Please enter an ID');
-      return;
-    }
-    setIsRetrieving(true);
-    try {
-      const response = await axios.post(`${API_URL}/retrieve`, { expenseId });
-      setPreviousExpenses(response.data);
-      showAlert('success', 'Previous expenses retrieved successfully');
-      setShowRetrieveModal(false); // Close retrieve modal
-    } catch (error) {
-      showAlert('danger', 'Failed to retrieve previous expenses');
-    } finally {
-      setIsRetrieving(false);
-    }
   };
 
   const categoryColors = {
@@ -198,30 +149,13 @@ function App() {
         <ExportExcel data={expenses} /> {/* Pass expenses data to ExportExcel */}
       </div>
 
-      {/* Save Total Expense Button */}
-      <div className="mb-4 d-flex justify-content-end">
-        <Button variant="info" onClick={handleSaveTotalExpense}>
-          Save Total Expense
-        </Button>
-      </div>
-
-      {/* Retrieve Previous Expenses Button */}
-      <div className="mb-4 d-flex justify-content-end">
-        <Button
-          variant="warning"
-          onClick={() => setShowRetrieveModal(true)} // Show modal for ID input when retrieving expenses
-        >
-          Retrieve Previous Expenses
-        </Button>
-      </div>
-
       <Card className="mb-4 shadow">
         <Card.Body>
           <div className="d-flex justify-content-between align-items-center">
             <div>
               <h5 className="mb-0">Total Expenses</h5>
               <h2 className="text-primary">
-                ${getTotalExpense()}
+                ${expenses.reduce((sum, expense) => sum + parseFloat(expense.amount), 0).toFixed(2)}
               </h2>
             </div>
             <Button variant="primary" onClick={() => setShowModal(true)}>
@@ -254,10 +188,17 @@ function App() {
                 </td>
                 <td>{new Date(expense.date).toLocaleDateString()}</td>
                 <td>
-                  <Button variant="warning" onClick={() => handleEdit(expense)} size="sm" className="me-2">
+                  <Button 
+                    variant="outline-warning" 
+                    onClick={() => handleEdit(expense)}
+                    className="me-2"
+                  >
                     <i className="bi bi-pencil"></i>
                   </Button>
-                  <Button variant="danger" onClick={() => handleDelete(expense.id)} size="sm">
+                  <Button 
+                    variant="outline-danger" 
+                    onClick={() => handleDelete(expense.id)}
+                  >
                     <i className="bi bi-trash"></i>
                   </Button>
                 </td>
@@ -265,86 +206,67 @@ function App() {
             ))
           ) : (
             <tr>
-              <td colSpan="5" className="text-center">No expenses added yet</td>
+              <td colSpan="5" className="text-center text-muted py-4">
+                No expenses found. Add your first expense!
+              </td>
             </tr>
           )}
         </tbody>
       </Table>
 
-      {/* Modal for Adding/Editing Expense */}
       <Modal show={showModal} onHide={handleClose}>
         <Modal.Header closeButton>
-          <Modal.Title>{editingId ? 'Edit Expense' : 'Add New Expense'}</Modal.Title>
+          <Modal.Title>{editingId ? 'Edit' : 'Add'} Expense</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleSubmit}>
-            <Form.Group controlId="formDescription" className="mb-3">
+            <Form.Group className="mb-3">
               <Form.Label>Description</Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Enter description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
                 required
               />
             </Form.Group>
 
-            <Form.Group controlId="formAmount" className="mb-3">
+            <Form.Group className="mb-3">
               <Form.Label>Amount</Form.Label>
               <Form.Control
                 type="number"
+                step="0.01"
+                min="0.01"
                 placeholder="Enter amount"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                onChange={(e) => setFormData({...formData, amount: e.target.value})}
                 required
               />
             </Form.Group>
 
-            <Form.Group controlId="formCategory" className="mb-3">
+            <Form.Group className="mb-3">
               <Form.Label>Category</Form.Label>
               <Form.Select
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                onChange={(e) => setFormData({...formData, category: e.target.value})}
               >
-                <option value="Food">Food</option>
-                <option value="Transport">Transport</option>
-                <option value="Entertainment">Entertainment</option>
-                <option value="Bills">Bills</option>
-                <option value="Other">Other</option>
+                {Object.keys(categoryColors).map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
               </Form.Select>
             </Form.Group>
 
-            <Button variant="primary" type="submit">
-              {editingId ? 'Save Changes' : 'Add Expense'}
-            </Button>
+            <div className="d-flex justify-content-end gap-2">
+              <Button variant="secondary" onClick={handleClose}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit">
+                {editingId ? 'Update' : 'Save'} Expense
+              </Button>
+            </div>
           </Form>
         </Modal.Body>
       </Modal>
-
-      {/* Modal for Retrieving Previous Expenses */}
-      <Modal show={showRetrieveModal} onHide={() => setShowRetrieveModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Retrieve Previous Expenses</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form onSubmit={handleRetrievePreviousExpenses}>
-            <Form.Group controlId="expenseId" className="mb-3">
-              <Form.Label>Expense ID</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Enter expense ID"
-                value={expenseId}
-                onChange={(e) => setExpenseId(e.target.value)}
-                required
-              />
-            </Form.Group>
-            <Button variant="primary" type="submit" disabled={isRetrieving}>
-              {isRetrieving ? 'Retrieving...' : 'Retrieve Expenses'}
-            </Button>
-          </Form>
-        </Modal.Body>
-      </Modal>
-
     </Container>
   );
 }
