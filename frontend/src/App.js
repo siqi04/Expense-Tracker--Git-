@@ -39,7 +39,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [uuid, setUuid] = useState('');
 
-  const API_URL = 'http://localhost:5111/api/expenses';
+  const API_URL = 'http://localhost:5000/api/expenses';
 
   useEffect(() => {
     fetchExpenses();

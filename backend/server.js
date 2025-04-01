@@ -40,21 +40,33 @@ app.get('/api/expenses', async (req, res) => {
 app.post('/api/expenses', async (req, res) => {
   try {
     const { description, amount, category } = req.body;
-    
+
+    // Log the request data to verify it's coming in properly
+    console.log("Received data for adding expense:", req.body);
+
     // Basic validation
     if (!description || !amount || !category) {
       return res.status(400).json({ error: 'Description, amount, and category are required' });
     }
 
-    const uuid = uuidv4();  // Generate a new UUID
+    // Validation passed, generate UUID
+    const uuid = uuidv4();
+
+    // Log the generated UUID
+    console.log("Generated UUID:", uuid);
+
+    // Insert expense into the database
     const [result] = await pool.query(
       'INSERT INTO expenses (uuid, description, amount, category) VALUES (?, ?, ?, ?)',
       [uuid, description, amount, category]
     );
+
+    // Return the newly created expense data
     res.status(201).json({ uuid, id: result.insertId, description, amount, category });
+
   } catch (err) {
     console.error("Error adding expense:", err.message);
-    res.status(400).json({ error: 'Failed to add expense', details: err.message });
+    res.status(500).json({ error: 'Failed to add expense', details: err.message });
   }
 });
 
@@ -63,6 +75,9 @@ app.put('/api/expenses/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { description, amount, category } = req.body;
+
+    // Log the request data for debugging
+    console.log(`Received data for updating expense with ID: ${id}`, req.body);
 
     if (!description || !amount || !category) {
       return res.status(400).json({ error: 'Description, amount, and category are required' });
@@ -137,7 +152,7 @@ app.get('/api/expenses/category/:category', async (req, res) => {
 });
 
 // Start Server
-const PORT = process.env.PORT || 6111;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
