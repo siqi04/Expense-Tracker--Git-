@@ -78,14 +78,14 @@ app.post('/api/expenses', async (req, res) => {
   }
 });
 
-// Update expense by ID with partial update support
-app.put('/api/expenses/:id', async (req, res) => {
+// Update expense by UUID with partial update support
+app.put('/api/expenses/:uuid', async (req, res) => {
   try {
-    const { id } = req.params;
+    const { uuid } = req.params;
     const { description, amount, category } = req.body;
 
     // Log the request data for debugging
-    console.log(`Received data for updating expense with ID: ${id}`, req.body);
+    console.log(`Received data for updating expense with UUID: ${uuid}`, req.body);
 
     // Validation for required fields
     const updates = {};
@@ -108,27 +108,27 @@ app.put('/api/expenses/:id', async (req, res) => {
     const values = Object.values(updates);
 
     const [result] = await pool.query(
-      `UPDATE expenses SET ${fields} WHERE id = ?`,
-      [...values, id]
+      `UPDATE expenses SET ${fields} WHERE uuid = ?`,
+      [...values, uuid]
     );
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Expense not found' });
     }
 
-    res.json({ id, ...updates });
+    res.json({ uuid, ...updates });
   } catch (err) {
     console.error("Error updating expense:", err.message);
     res.status(500).json({ error: 'Failed to update expense', details: err.message });
   }
 });
 
-// Delete expense by ID
-app.delete('/api/expenses/:id', async (req, res) => {
+// Delete expense by UUID
+app.delete('/api/expenses/:uuid', async (req, res) => {
   try {
-    const { id } = req.params;
+    const { uuid } = req.params;
 
-    const [result] = await pool.query('DELETE FROM expenses WHERE id = ?', [id]);
+    const [result] = await pool.query('DELETE FROM expenses WHERE uuid = ?', [uuid]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Expense not found' });
