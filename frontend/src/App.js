@@ -11,8 +11,7 @@ import {
   Modal,
   Alert,
   Badge,
-  Card,
-  InputGroup
+  Card
 } from 'react-bootstrap';
 import * as XLSX from 'xlsx';
 
@@ -47,7 +46,7 @@ function App() {
   const fetchExpenses = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_URL}`);
+      const response = await axios.get(`${API_URL}`); 
       setExpenses(response.data);
     } catch (error) {
       showAlert('danger', 'Failed to load expenses');
@@ -74,7 +73,7 @@ function App() {
 
     try {
       if (editingId) {
-        // Update expense (PUT request)
+        // Update expense (PUT request using uuid)
         await axios.put(`${API_URL}/${editingId}`, requestBody);
         showAlert('success', 'Expense updated successfully!');
       } else {
@@ -93,7 +92,7 @@ function App() {
   const handleDelete = async (uuid) => {
     if (window.confirm('Are you sure you want to delete this expense?')) {
       try {
-        await axios.delete(`${API_URL}/${uuid}`);
+        await axios.delete(`${API_URL}/${uuid}`); // Delete using uuid
         showAlert('success', 'Expense deleted');
         fetchExpenses(); // Refresh the list after deletion
       } catch (error) {
@@ -108,7 +107,7 @@ function App() {
       amount: expense.amount,
       category: expense.category
     });
-    setEditingId(expense.uuid); // Use UUID for editing
+    setEditingId(expense.uuid); // Set uuid for editing
     setShowModal(true);
   };
 
