@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
-const { v4: uuidv4 } = require('uuid'); // Import uuid
+const { v4: uuidv4 } = require('uuid');
 const app = express();
 
 // Middleware
@@ -22,13 +22,19 @@ const pool = mysql.createPool({
 
 // CRUD Routes
 
-// Get all expenses
+// Get all expenses with pagination
 app.get('/api/expenses', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM expenses ORDER BY date DESC');
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    // Fetch expenses with pagination and sorting by date DESC
+    const [rows] = await pool.query('SELECT * FROM expenses ORDER BY date DESC LIMIT ? OFFSET ?', [limit, offset]);
+
     if (!rows || rows.length === 0) {
       return res.status(404).json({ error: 'No expenses found' });
     }
+
     res.json(rows);
   } catch (err) {
     console.error("Error fetching expenses:", err.message);
@@ -36,7 +42,7 @@ app.get('/api/expenses', async (req, res) => {
   }
 });
 
-// Add new expense with UUID
+// Add new expense with UUID and validation
 app.post('/api/expenses', async (req, res) => {
   try {
     const { description, amount, category } = req.body;
@@ -49,11 +55,13 @@ app.post('/api/expenses', async (req, res) => {
       return res.status(400).json({ error: 'Description, amount, and category are required' });
     }
 
-    // Validation passed, generate UUID
-    const uuid = uuidv4();
+    // Amount validation
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Amount must be a positive number' });
+    }
 
-    // Log the generated UUID
-    console.log("Generated UUID:", uuid);
+    // Generate UUID
+    const uuid = uuidv4();
 
     // Insert expense into the database
     const [result] = await pool.query(
@@ -70,7 +78,7 @@ app.post('/api/expenses', async (req, res) => {
   }
 });
 
-// Update expense by ID
+// Update expense by ID with partial update support
 app.put('/api/expenses/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -79,23 +87,39 @@ app.put('/api/expenses/:id', async (req, res) => {
     // Log the request data for debugging
     console.log(`Received data for updating expense with ID: ${id}`, req.body);
 
-    if (!description || !amount || !category) {
-      return res.status(400).json({ error: 'Description, amount, and category are required' });
+    // Validation for required fields
+    const updates = {};
+    if (description) updates.description = description;
+    if (amount) {
+      if (isNaN(amount) || amount <= 0) {
+        return res.status(400).json({ error: 'Amount must be a positive number' });
+      }
+      updates.amount = amount;
+    }
+    if (category) updates.category = category;
+
+    // If no updates provided
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
     }
 
+    // Dynamically construct the update query
+    const fields = Object.keys(updates).map(field => `${field} = ?`).join(', ');
+    const values = Object.values(updates);
+
     const [result] = await pool.query(
-      'UPDATE expenses SET description = ?, amount = ?, category = ? WHERE id = ?',
-      [description, amount, category, id]
+      `UPDATE expenses SET ${fields} WHERE id = ?`,
+      [...values, id]
     );
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Expense not found' });
     }
 
-    res.json({ id, description, amount, category });
+    res.json({ id, ...updates });
   } catch (err) {
     console.error("Error updating expense:", err.message);
-    res.status(400).json({ error: 'Failed to update expense', details: err.message });
+    res.status(500).json({ error: 'Failed to update expense', details: err.message });
   }
 });
 
@@ -103,7 +127,7 @@ app.put('/api/expenses/:id', async (req, res) => {
 app.delete('/api/expenses/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const [result] = await pool.query('DELETE FROM expenses WHERE id = ?', [id]);
 
     if (result.affectedRows === 0) {
@@ -113,7 +137,7 @@ app.delete('/api/expenses/:id', async (req, res) => {
     res.status(204).end();
   } catch (err) {
     console.error("Error deleting expense:", err.message);
-    res.status(400).json({ error: 'Failed to delete expense', details: err.message });
+    res.status(500).json({ error: 'Failed to delete expense', details: err.message });
   }
 });
 

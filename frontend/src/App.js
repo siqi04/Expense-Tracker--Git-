@@ -37,7 +37,6 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [alert, setAlert] = useState({ show: false, variant: '', message: '' });
   const [loading, setLoading] = useState(true);
-  const [uuid, setUuid] = useState('');
 
   const API_URL = 'http://localhost:5000/api/expenses';
 
@@ -46,8 +45,9 @@ function App() {
   }, []);
 
   const fetchExpenses = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get(API_URL);
+      const response = await axios.get(`${API_URL}`);
       setExpenses(response.data);
     } catch (error) {
       showAlert('danger', 'Failed to load expenses');
@@ -63,31 +63,42 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const { description, amount, category } = formData;
+    if (!description || !amount || !category) {
+      showAlert('danger', 'Please fill out all fields!');
+      return;
+    }
+
+    const requestBody = { description, amount, category };
+
     try {
       if (editingId) {
-        const response = await axios.put(`${API_URL}/${editingId}`, { ...formData, uuid });
-        console.log(response.data); // Log the response data for debugging
-        showAlert('success', 'Expense updated successfully');
+        // Update expense (PUT request)
+        await axios.put(`${API_URL}/${editingId}`, requestBody);
+        showAlert('success', 'Expense updated successfully!');
       } else {
-        const response = await axios.post(API_URL, { ...formData, uuid: uuidv4() });
-        console.log(response.data); // Log the response data for debugging
-        showAlert('success', 'Expense added successfully');
+        // Create new expense (POST request)
+        await axios.post(API_URL, requestBody);
+        showAlert('success', 'Expense added successfully!');
       }
-      fetchExpenses();
-      handleClose();
+      fetchExpenses(); // Refresh the list after create/update
+      handleClose(); // Close modal after submit
     } catch (error) {
-      console.error(error); // Log any error for debugging
+      console.error('Error while saving expense:', error);
       showAlert('danger', 'Operation failed');
     }
   };
 
   const handleDelete = async (uuid) => {
-    try {
-      await axios.delete(`${API_URL}/${uuid}`);
-      showAlert('success', 'Expense deleted');
-      fetchExpenses();
-    } catch (error) {
-      showAlert('danger', 'Failed to delete');
+    if (window.confirm('Are you sure you want to delete this expense?')) {
+      try {
+        await axios.delete(`${API_URL}/${uuid}`);
+        showAlert('success', 'Expense deleted');
+        fetchExpenses(); // Refresh the list after deletion
+      } catch (error) {
+        showAlert('danger', 'Failed to delete');
+      }
     }
   };
 
@@ -97,7 +108,6 @@ function App() {
       amount: expense.amount,
       category: expense.category
     });
-    setUuid(expense.uuid); // Set UUID from the selected expense
     setEditingId(expense.uuid); // Use UUID for editing
     setShowModal(true);
   };
@@ -108,25 +118,12 @@ function App() {
     setFormData({ description: '', amount: '', category: 'Food' });
   };
 
-  const handleSave = () => {
-    const newUuid = uuidv4();
-    setUuid(newUuid);
-    localStorage.setItem(newUuid, JSON.stringify(expenses));
-    showAlert('success', `Saved with UUID: ${newUuid}`);
-  };
-
-  const handleRetrieve = () => {
-    const data = localStorage.getItem(uuid);
-    if (data) {
-      setExpenses(JSON.parse(data));
-      showAlert('success', 'Expenses retrieved successfully');
-    } else {
-      showAlert('danger', 'No data found for this UUID');
-    }
-  };
-
   if (loading) {
-    return <Container className="text-center mt-5"><div className="spinner-border text-primary"></div></Container>;
+    return (
+      <Container className="text-center mt-5">
+        <div className="spinner-border text-primary"></div>
+      </Container>
+    );
   }
 
   return (
@@ -139,25 +136,13 @@ function App() {
 
       <div className="d-flex justify-content-between mb-3">
         <ExportExcel data={expenses} />
-        <div>
-          <Button variant="info" className="me-2" onClick={handleSave}><i className="bi bi-save"></i> Save</Button>
-          <InputGroup className="d-inline-flex w-auto">
-            <Form.Control
-              type="text"
-              placeholder="Enter UUID"
-              value={uuid}
-              onChange={(e) => setUuid(e.target.value)}
-            />
-            <Button variant="secondary" onClick={handleRetrieve}><i className="bi bi-upload"></i> Retrieve</Button>
-          </InputGroup>
-        </div>
+        <Button variant="primary" onClick={() => setShowModal(true)}><i className="bi bi-plus-lg"></i> Add Expense</Button>
       </div>
 
       <Card className="mb-4 shadow">
         <Card.Body>
           <div className="d-flex justify-content-between align-items-center">
             <h5>Total Expenses: <span className="text-primary">${expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0).toFixed(2)}</span></h5>
-            <Button variant="primary" onClick={() => setShowModal(true)}><i className="bi bi-plus-lg"></i> Add Expense</Button>
           </div>
         </Card.Body>
       </Card>
@@ -167,10 +152,19 @@ function App() {
           <tr><th>Description</th><th>Amount</th><th>Category</th><th>Actions</th></tr>
         </thead>
         <tbody>
-          {expenses.length ? expenses.map(e => (
-            <tr key={e.uuid}><td>{e.description}</td><td>${parseFloat(e.amount).toFixed(2)}</td><td><Badge bg="primary">{e.category}</Badge></td>
-            <td><Button variant="warning" onClick={() => handleEdit(e)}>✏</Button> <Button variant="danger" onClick={() => handleDelete(e.uuid)}>🗑</Button></td></tr>
-          )) : <tr><td colSpan="4" className="text-center">No expenses found.</td></tr>}
+          {expenses.length ? expenses.map((e) => (
+            <tr key={e.uuid}>
+              <td>{e.description}</td>
+              <td>${parseFloat(e.amount).toFixed(2)}</td>
+              <td><Badge bg="primary">{e.category}</Badge></td>
+              <td>
+                <Button variant="warning" onClick={() => handleEdit(e)}>✏</Button>{' '}
+                <Button variant="danger" onClick={() => handleDelete(e.uuid)}>🗑</Button>
+              </td>
+            </tr>
+          )) : (
+            <tr><td colSpan="4" className="text-center">No expenses found.</td></tr>
+          )}
         </tbody>
       </Table>
 
