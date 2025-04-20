@@ -167,7 +167,7 @@ function App() {
           <tr><th>Description</th><th>Amount</th><th>Category</th><th>Actions</th></tr>
         </thead>
         <tbody>
-          {expenses.length ? expenses.map(e => (
+        {Array.isArray(expenses) && expenses.length ? expenses.map(e => (
             <tr key={e.uuid}><td>{e.description}</td><td>${parseFloat(e.amount).toFixed(2)}</td><td><Badge bg="primary">{e.category}</Badge></td>
             <td><Button variant="warning" onClick={() => handleEdit(e)}>✏</Button> <Button variant="danger" onClick={() => handleDelete(e.uuid)}>🗑</Button></td></tr>
           )) : <tr><td colSpan="4" className="text-center">No expenses found.</td></tr>}
