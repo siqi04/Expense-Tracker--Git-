@@ -7,9 +7,7 @@
     }
   ],
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+    { "src": "/manifest.json", "dest": "/frontend/build/manifest.json" },
+    { "src": "/(.*)", "dest": "/frontend/build/$1" }
   ]
 }
