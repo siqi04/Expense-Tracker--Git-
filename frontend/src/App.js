@@ -156,7 +156,7 @@ function App() {
       <Card className="mb-4 shadow">
         <Card.Body>
           <div className="d-flex justify-content-between align-items-center">
-            <h5>Total Expenses: <span className="text-primary">${expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0).toFixed(2)}</span></h5>
+          <h5>Total Expenses: <span className="text-primary">${Array.isArray(expenses) ? expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0).toFixed(2) : '0.00'}</span></h5>
             <Button variant="primary" onClick={() => setShowModal(true)}><i className="bi bi-plus-lg"></i> Add Expense</Button>
           </div>
         </Card.Body>
