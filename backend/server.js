@@ -124,6 +124,11 @@ app.get('/api/expenses/category/:category', async (req, res) => {
   }
 });
 
+// Root route for Render health check
+app.get('/', (req, res) => {
+  res.send('API is running');
+});
+
 // Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
