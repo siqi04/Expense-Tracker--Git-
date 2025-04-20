@@ -39,7 +39,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [uuid, setUuid] = useState('');
 
-  const API_URL = 'http://localhost:5000/api/expenses';
+  const API_URL = 'https://expense-tracker-git.onrender.com/api/expenses';
 
   useEffect(() => {
     fetchExpenses();
