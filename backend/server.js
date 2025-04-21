@@ -7,7 +7,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: 'https://expense-tracker-git-six.vercel.app', // your Vercel frontend URL
+  origin: 'https://expense-tracker-1it2jlvz6-siqi04s-projects.vercel.app/', // your Vercel frontend URL
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true, // if you're using cookies, add this
 }));
