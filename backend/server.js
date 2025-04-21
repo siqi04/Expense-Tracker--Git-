@@ -9,7 +9,7 @@ const app = express();
 app.use(cors({
   origin: 'https://expense-tracker-git-six.vercel.app', // your Vercel frontend URL
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true, // if you're using cookies, add this
+  credentials: true,
 }));
 app.use(express.json());
 
@@ -33,16 +33,16 @@ pool.query('SELECT 1')
     console.error('Database connection failed:', err);
   });
 
-// Health Check Route (useful for deployments)
+// Health Check Route
 app.get('/health', (req, res) => {
   res.status(200).json({ message: 'API is healthy' });
 });
 
-// Get all expenses
+// Get all expenses (fixed ORDER BY `date`)
 app.get('/api/expenses', async (req, res) => {
   console.log("GET request to /api/expenses received");
   try {
-    const [rows] = await pool.query('SELECT * FROM expenses ORDER BY date DESC');
+    const [rows] = await pool.query('SELECT * FROM expenses ORDER BY `date` DESC');
     res.json(rows);
   } catch (err) {
     console.error("Error fetching expenses:", err.message);
@@ -140,7 +140,7 @@ app.get('/api/expenses/category/:category', async (req, res) => {
   console.log(`GET request to /api/expenses/category/${req.params.category} received`);
   try {
     const { category } = req.params;
-    const [rows] = await pool.query('SELECT * FROM expenses WHERE category = ? ORDER BY date DESC', [category]);
+    const [rows] = await pool.query('SELECT * FROM expenses WHERE category = ? ORDER BY `date` DESC', [category]);
     res.json(rows);
   } catch (err) {
     console.error("Error fetching expenses by category:", err.message);
@@ -148,7 +148,7 @@ app.get('/api/expenses/category/:category', async (req, res) => {
   }
 });
 
-// Root route for Render health check
+// Root route
 app.get('/', (req, res) => {
   res.send('API is running');
 });
