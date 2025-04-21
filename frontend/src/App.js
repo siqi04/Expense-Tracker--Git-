@@ -39,7 +39,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [uuid, setUuid] = useState('');
 
-  const API_URL = 'https://expense-tracker-git.onrender.com/';
+  const API_URL = 'https://expense-tracker-git.onrender.com/'; // API URL with /api/expenses
 
   useEffect(() => {
     fetchExpenses();
@@ -47,7 +47,7 @@ function App() {
 
   const fetchExpenses = async () => {
     try {
-      const response = await axios.get(API_URL);  // Correct API URL here
+      const response = await axios.get(`${API_URL}api/expenses`);  // Correct API URL here
       setExpenses(response.data);
     } catch (error) {
       showAlert('danger', 'Failed to load expenses');
@@ -65,10 +65,10 @@ function App() {
     e.preventDefault();
     try {
       if (editingId) {
-        const response = await axios.put(`${API_URL}${editingId}`, { ...formData, uuid });
+        const response = await axios.put(`${API_URL}api/expenses/${editingId}`, { ...formData, uuid });
         showAlert('success', 'Expense updated successfully');
       } else {
-        const response = await axios.post(API_URL, { ...formData, uuid: uuidv4() });
+        const response = await axios.post(`${API_URL}api/expenses`, { ...formData, uuid: uuidv4() });
         showAlert('success', 'Expense added successfully');
       }
       fetchExpenses();
@@ -81,7 +81,7 @@ function App() {
 
   const handleDelete = async (uuid) => {
     try {
-      await axios.delete(`${API_URL}${uuid}`);
+      await axios.delete(`${API_URL}api/expenses/${uuid}`);
       showAlert('success', 'Expense deleted');
       fetchExpenses();
     } catch (error) {
